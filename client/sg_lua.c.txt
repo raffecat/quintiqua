@@ -1,0 +1,449 @@
+// sg_lua.c: lua binding to scene graph library
+
+#include "sg_lua.h"
+#include "lauxlib.h"
+#include "xlua.h"
+#include "stb_image.h"
+#include "QSGNode.h"
+#include "QSGFrame.h"
+#include "QSGViewport.h"
+
+#ifdef WINDOWS
+#include <windows.h> // for gl.
+#else
+#include <X11/Xlib.h>
+#endif
+
+#include <GL/gl.h>
+
+#ifndef GL_CLAMP_TO_EDGE /* sigh */
+#define GL_CLAMP_TO_EDGE 0x812F
+#endif
+
+static void recurs_render(QSGNode*);
+static void render_transform_node(QSGNode*);
+static void render_frame(QSGNode*);
+static void render_clip(QSGNode*);
+GLuint resolve_texture(sg_texture*);
+
+
+static sg_type type_node = {
+	{ "node", NULL },
+	NULL,
+	NULL,
+};
+
+static sg_type type_viewport = {
+	{ "viewport", &type_node.type },
+	NULL,
+	NULL,
+};
+
+static sg_type type_transform = {
+	{ "transform", &type_node.type },
+	render_transform_node,
+	NULL,
+};
+
+static sg_type type_frame = {
+	{ "frame", &type_transform.type },
+	render_frame,
+	NULL,
+};
+
+static sg_type type_clip = {
+	{ "clip", &type_transform.type },
+	render_clip,
+	NULL,
+};
+
+static int node_gc(lua_State* L)
+{
+	QSGNode* self = lua_touserdata(L, 1);
+	return 0; // no results
+}
+
+static int create_transform_node(lua_State* L)
+{
+	//sg_transform_node* self = xlua_newinstance(L,
+	//	sizeof(sg_transform_node), &type_transform.type); // push u
+	return 1; // return u
+}
+
+static QSGNode* to_node(lua_State* L, int idx)
+{
+	return (QSGNode*) xlua_tousertype(L, idx, &type_node.type);
+}
+
+static int set_parent(lua_State* L)
+{
+	QSGNode* child = to_node(L, 1);
+	QSGNode* parent = to_node(L, 2);
+	node_append(parent, child);
+	return 0; // no results
+}
+
+static int set_position(lua_State* L)
+{
+	sg_transform_node* self = xlua_tousertype(L, 1, &type_transform.type);
+	float x = (float) lua_tonumber(L, 2);
+	float y = (float) lua_tonumber(L, 3);
+	self->trans.pos.x = x;
+	self->trans.pos.y = y;
+	return 0; // no results
+}
+
+static int set_angle(lua_State* L)
+{
+	sg_transform_node* self = xlua_tousertype(L, 1, &type_transform.type);
+	float angle = (float) lua_tonumber(L, 2);
+	self->trans.angle = angle;
+	return 0; // no results
+}
+
+static int set_scale(lua_State* L)
+{
+	sg_transform_node* self = xlua_tousertype(L, 1, &type_transform.type);
+	float scale_x = (float) lua_tonumber(L, 2);
+	float scale_y = (float) lua_tonumber(L, 3);
+	self->trans.scale.x = scale_x;
+	self->trans.scale.y = scale_y;
+	return 0; // no results
+}
+
+static int set_colour(lua_State* L)
+{
+	sg_transform_node* self = xlua_tousertype(L, 1, &type_transform.type);
+	float r = (float) lua_tonumber(L, 2);
+	float g = (float) lua_tonumber(L, 3);
+	float b = (float) lua_tonumber(L, 4);
+	float a = (float) luaL_optnumber(L, 5, 1);
+	self->trans.col.r = r;
+	self->trans.col.g = g;
+	self->trans.col.b = b;
+	self->trans.col.a = a;
+	return 0; // no results
+}
+
+// --------------- frames
+
+typedef struct sg_frame {
+	sg_node node;
+	sg_transform trans;
+	GLuint texture; // bound texture id
+	float left, top, right, bottom;
+	float tx, ty, ex, ey;
+} sg_frame;
+
+static sg_frame* to_frame(lua_State* L, int idx)
+{
+	return xlua_tousertype(L, idx, &type_frame.type);
+}
+
+static int create_frame(lua_State* L)
+{
+	sg_frame* self = xlua_newinstance(L,
+		sizeof(sg_frame), &type_frame.type); // push u
+	init_node(&self->node, &type_frame);
+	init_transform(&self->trans);
+	self->texture = 0;
+	self->left = self->top = self->right = self->bottom = 0;
+	self->tx = self->ty = self->ex = self->ey = 0;
+	//lua_pushcclosure(L, frame_impl, 1);
+	return 1; // return u
+}
+
+void render_frame_content(QSGNode* node)
+{
+	sg_frame* self = (sg_frame*) node;
+
+	if (self->texture) {
+		glEnable(GL_TEXTURE_2D);
+		glBindTexture(GL_TEXTURE_2D, self->texture);
+	}
+	glBegin(GL_QUADS);
+	glTexCoord2f(0, 1);
+	glVertex2f(self->left, self->top);
+	glTexCoord2f(1, 1);
+	glVertex2f(self->right, self->top);
+	glTexCoord2f(1, 0);
+	glVertex2f(self->right, self->bottom);
+	glTexCoord2f(0, 0);
+	glVertex2f(self->left, self->bottom);
+	glEnd();
+	glDisable(GL_TEXTURE_2D);
+
+	recurs_render(node);
+}
+
+static int frame_set_shape(lua_State* L)
+{
+	sg_frame* self = to_frame(L, 1);
+	float left = (float) lua_tonumber(L, 2);
+	float top = (float) lua_tonumber(L, 3);
+	float right = (float) lua_tonumber(L, 4);
+	float bottom = (float) lua_tonumber(L, 5);
+	self->left = left;
+	self->top = top;
+	self->right = right;
+	self->bottom = bottom;
+	return 0; // no results
+}
+
+static int frame_set_texture(lua_State* L)
+{
+	sg_frame* self = xlua_tousertype(L, 1, &type_frame.type);
+	sg_texture* tex = to_texture(L, 2);
+	self->texture = resolve_texture(tex);
+	self->trans.flags = (self->trans.flags & ~flag_needs_blend) |
+		((tex->comp == 4) ? flag_needs_blend : 0);
+	return 0; // no results
+}
+
+// --------------- textures
+
+static xlua_type type_texture = {
+	"texture", NULL
+};
+
+sg_texture* to_texture(lua_State* L, int idx)
+{
+	return (sg_texture*) xlua_tousertype(L, idx, &type_texture);
+}
+
+static int load_texture(lua_State *L)
+{
+	const char* filename = luaL_checklstring(L, 1, NULL);
+	int width, height, comp;
+	sg_texture* tex;
+	stbi_uc* data = stbi_load(filename, &width, &height, &comp, STBI_default);
+	if (!data) {
+		luaL_error(L, "load failed: %s (%s)", filename, stbi_failure_reason());
+	}
+	tex = xlua_newinstance(L, sizeof(sg_texture), &type_texture);
+	tex->type = &type_texture;
+	tex->data = data;
+	tex->width = width;
+	tex->height = height;
+	tex->comp = comp;
+	tex->id = 0;
+	return 1; // tex
+}
+
+static int texture_gc(lua_State* L)
+{
+	sg_texture* self = lua_touserdata(L, 1);
+	if (self->id) {
+		glDeleteTextures(1, &self->id);
+	}
+	return 0;
+}
+
+// --------------- clip
+
+typedef struct sg_clip {
+	sg_node node;
+	sg_transform trans;
+	float left, top, right, bottom;
+} sg_clip;
+
+sg_clip* to_clip(lua_State* L, int idx)
+{
+	return (sg_clip*) xlua_tousertype(L, idx, &type_clip.type);
+}
+
+static int create_clip(lua_State* L)
+{
+	sg_clip* self = xlua_newinstance(L,
+		sizeof(sg_clip), &type_clip.type); // push u
+	init_node(&self->node, &type_clip);
+	init_transform(&self->trans);
+	self->left = self->top = self->right = self->bottom = 0;
+	return 1; // return u
+}
+
+static int clip_set_shape(lua_State* L)
+{
+	sg_clip* self = to_clip(L, 1);
+	float left = (float) lua_tonumber(L, 2);
+	float bottom = (float) lua_tonumber(L, 3);
+	float right = (float) lua_tonumber(L, 4);
+	float top = (float) lua_tonumber(L, 5);
+	self->left = left;
+	self->bottom = bottom;
+	self->right = right;
+	self->top = top;
+	return 0; // no results
+}
+
+void render_clip(QSGNode* node)
+{
+	GLfloat matrix[16], tx, ty;
+	GLint left, bottom, right, top;
+	sg_clip* self = (sg_clip*) node;
+
+	// get parent origin in screen space (hax)
+	glGetFloatv(GL_MODELVIEW_MATRIX, matrix);
+	tx = m_viewport->width * 0.5f + matrix[3];
+	ty = m_viewport->height * 0.5f + matrix[7];
+
+	left = (GLint) (tx + self->left);
+	right = (GLint) (tx + self->right);
+	bottom = (GLint) (ty + self->bottom);
+	top = (GLint) (ty + self->top);
+
+	if (left < 0) left = 0;
+	if (bottom < 0) bottom = 0;
+	if (right > m_viewport->width) right = m_viewport->width;
+	if (top > m_viewport->height) top = m_viewport->height;
+	glScissor(left, bottom, right-left, top-bottom);
+
+	glEnable(GL_SCISSOR_TEST);
+	render_with_transform(node, recurs_render);
+	glDisable(GL_SCISSOR_TEST);
+}
+
+
+// --------------- viewport
+
+QSGViewport* m_viewport = 0;
+
+static int viewport_set_bg(lua_State *L)
+{
+	QSGViewport* self = m_viewport;
+	float r = (float) lua_tonumber(L, 1);
+	float g = (float) lua_tonumber(L, 2);
+	float b = (float) lua_tonumber(L, 3);
+	m_viewport->setBackground(QSGColour(r, g, b));
+	return 0;
+}
+
+static int viewport_set_scene(lua_State *L)
+{
+	QSGViewport* self = m_viewport;
+	QSGNode* scene = to_node(L, 1);
+	node_remove_all(&self->node);
+	node_append(&self->node, scene);
+	return 0; // no results
+}
+
+static const luaL_Reg sg_methods[] = {
+	{"createTransform", create_transform_node},
+	{"createFrame", create_frame},
+	{"createClip", create_clip},
+	{"setParent", set_parent},
+	{"setPosition", set_position},
+	{"setAngle", set_angle},
+	{"setScale", set_scale},
+	{"setColour", set_colour},
+	{"setShape", frame_set_shape},
+	{"setClipShape", clip_set_shape},
+	{"setTexture", frame_set_texture},
+	{"loadTexture", load_texture},
+	{"setBackground", viewport_set_bg},
+	{"setScene", viewport_set_scene},
+	{NULL, NULL}
+};
+
+static int create_viewport(lua_State* L)
+{
+	QSGViewport* self = xlua_newinstance(L,
+		sizeof(sg_viewport), &type_viewport.type); // push u
+	init_node(&self->node, &type_viewport);
+	self->bgcol = sg_black;
+	self->width = self->height = 0;
+	// put viewport in registry to avoid GC
+	lua_pushlightuserdata(L, &type_viewport); // push k = tag
+	lua_pushvalue(L, -2); // push v = u
+	lua_rawset(L, LUA_REGISTRYINDEX); // reg[k] = v; pop v,k
+	m_viewport = self; // NB. never garbage collected
+	return 0;
+}
+
+int sg_lua_init(lua_State* L)
+{
+	luax_newusertype(L, &type_viewport.type, node_gc);
+	luax_newusertype(L, &type_transform.type, node_gc);
+	luax_newusertype(L, &type_frame.type, node_gc);
+	luax_newusertype(L, &type_clip.type, node_gc);
+	luax_newusertype(L, &type_texture, texture_gc);
+	luaL_register(L, "sg", sg_methods);
+	create_viewport(L);
+	return 0;
+}
+
+int sg_update(lua_State* L, lua_Number delta)
+{
+	int result;
+	lua_pushcfunction(L, xlua_traceback);
+	lua_getglobal(L, "sg_update");
+	lua_pushnumber(L, delta);
+	result = lua_pcall(L, 1, 0, -3);
+	if (result) lua_remove(L, -2); // xlua_traceback
+	else lua_pop(L, 1); // xlua_traceback
+	return result;
+}
+
+int sg_mouse_move(lua_State* L, int x, int y)
+{
+	int result;
+	lua_pushcfunction(L, xlua_traceback);
+	lua_getglobal(L, "sg_mouse_move");
+	lua_pushnumber(L, x);
+	lua_pushnumber(L, y);
+	result = lua_pcall(L, 2, 0, -4);
+	if (result) lua_remove(L, -2); // xlua_traceback
+	else lua_pop(L, 1); // xlua_traceback
+	return result;
+}
+
+int sg_mouse_button(lua_State* L, int btn, int down)
+{
+	int result;
+	lua_pushcfunction(L, xlua_traceback);
+	lua_getglobal(L, "sg_mouse_button");
+	lua_pushnumber(L, btn);
+	lua_pushnumber(L, down);
+	result = lua_pcall(L, 2, 0, -4);
+	if (result) lua_remove(L, -2); // xlua_traceback
+	else lua_pop(L, 1); // xlua_traceback
+	return result;
+}
+
+int sg_key_press(lua_State* L, int key, int down)
+{
+	int result;
+	lua_pushcfunction(L, xlua_traceback);
+	lua_getglobal(L, "sg_key_press");
+	lua_pushnumber(L, key);
+	lua_pushnumber(L, down);
+	result = lua_pcall(L, 2, 0, -4);
+	if (result) lua_remove(L, -2); // xlua_traceback
+	else lua_pop(L, 1); // xlua_traceback
+	return result;
+}
+
+int sg_key_char(lua_State* L, char* bytes, int len)
+{
+	int result;
+	lua_pushcfunction(L, xlua_traceback);
+	lua_getglobal(L, "sg_key_char");
+	lua_pushlstring(L, bytes, len);
+	result = lua_pcall(L, 1, 0, -3);
+	if (result) lua_remove(L, -2); // xlua_traceback
+	else lua_pop(L, 1); // xlua_traceback
+	return result;
+}
+
+int sg_send_resize(lua_State* L, int width, int height)
+{
+	int result;
+	lua_pushcfunction(L, xlua_traceback);
+	lua_getglobal(L, "sg_size_change");
+	lua_pushnumber(L, width);
+	lua_pushnumber(L, height);
+	result = lua_pcall(L, 2, 0, -4);
+	if (result) lua_remove(L, -2); // xlua_traceback
+	else lua_pop(L, 1); // xlua_traceback
+	return result;
+}

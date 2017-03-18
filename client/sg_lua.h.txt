@@ -1,0 +1,32 @@
+// sg_lua.h: lua binding to scene graph library
+
+#ifndef SG_LUA
+#define SG_LUA
+
+#include "lua.h"
+#include "xlua.h"
+
+typedef unsigned char byte;
+
+struct sg_node;
+
+typedef void (*render_func)(struct sg_node* self);
+typedef void (*collect_func)(struct sg_node* self);
+
+typedef struct sg_type {
+	xlua_type type;
+	render_func render;
+	collect_func collect;
+} sg_type;
+
+
+class QSGNode;
+class QSGTexture;
+class QSGViewport;
+
+QSGTexture* to_texture(lua_State*, int);
+
+int sg_lua_init(lua_State* L);
+int sg_update(lua_State* L, lua_Number delta);
+
+#endif // SG_LUA

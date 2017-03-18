@@ -1,0 +1,11 @@
+#!/bin/sh
+mkdir dist
+rm -rf dist/qclient
+mkdir dist/qclient
+cp -R -t dist/qclient client lua-5.1.3 data Makefile *.vcproj *.sln DEPS start package publish.bat 
+cd dist/qclient
+rm data/client.log
+rm client/client.exe client/client.log client/*.o
+rm lua-5.1.3/src/lua.exe lua-5.1.3/src/luac.exe lua-5.1.3/src/liblua.a lua-5.1.3/src/*.o
+cd ..
+tar zcf qclient.tgz qclient

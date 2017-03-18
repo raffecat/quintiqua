@@ -1,0 +1,8 @@
+.DS_Store
+bin/
+build/
+client.exe
+client.log
+dist/
+dist-win32/
+

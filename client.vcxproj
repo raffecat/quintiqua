@@ -1,0 +1,158 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{E4578625-F841-43AF-BFF4-94A5158F926C}</ProjectGuid>
+    <RootNamespace>client</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>12.0.30501.0</_ProjectFileVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(SolutionDir)\bin\</OutDir>
+    <IntDir>$(SolutionDir)\build\$(ProjectName)\$(Configuration)\</IntDir>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(SolutionDir)\bin\</OutDir>
+    <IntDir>$(SolutionDir)\build\$(ProjectName)\$(Configuration)\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>lua-5.1.4\src;luasocket-2.0.2\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WINDOWS;WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PrecompiledHeader />
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>luad.lib;socketd.lib;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;opengl32.lib;glu32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>build\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <AdditionalIncludeDirectories>lua-5.1.4\src;luasocket-2.0.2\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WINDOWS;WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <PrecompiledHeader />
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CallingConvention>FastCall</CallingConvention>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>lua.lib;luasocket.lib;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;opengl32.lib;glu32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>build\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="client\Logger.cpp" />
+    <ClCompile Include="client\LuaController.cpp" />
+    <ClCompile Include="client\Packet.cpp" />
+    <ClCompile Include="client\QSGClipView.cpp" />
+    <ClCompile Include="client\QSGFrame.cpp" />
+    <ClCompile Include="client\QSGGeometry.cpp" />
+    <ClCompile Include="client\QSGGraphic.cpp" />
+    <ClCompile Include="client\QSGNode.cpp" />
+    <ClCompile Include="client\QSGOpenGLRenderer.cpp" />
+    <ClCompile Include="client\QSGResource.cpp" />
+    <ClCompile Include="client\QSGTexture.cpp" />
+    <ClCompile Include="client\QSGTransform.cpp" />
+    <ClCompile Include="client\QSGTransformNode.cpp" />
+    <ClCompile Include="client\QSGViewport.cpp" />
+    <ClCompile Include="client\Socket.cpp" />
+    <ClCompile Include="client\stb_image.c" />
+    <ClCompile Include="client\stb_vorbis.c" />
+    <ClCompile Include="client\WinMain.cpp" />
+    <ClCompile Include="client\xlua.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="client\global.h" />
+    <ClInclude Include="client\Logger.h" />
+    <ClInclude Include="client\luabind.h" />
+    <ClInclude Include="client\LuaController.h" />
+    <ClInclude Include="client\Packet.h" />
+    <ClInclude Include="client\QSGClipView.h" />
+    <ClInclude Include="client\QSGFrame.h" />
+    <ClInclude Include="client\QSGGeometry.h" />
+    <ClInclude Include="client\QSGGraphic.h" />
+    <ClInclude Include="client\QSGNode.h" />
+    <ClInclude Include="client\QSGObject.h" />
+    <ClInclude Include="client\QSGOpenGLRenderer.h" />
+    <ClInclude Include="client\QSGRenderer.h" />
+    <ClInclude Include="client\QSGResource.h" />
+    <ClInclude Include="client\QSGTexture.h" />
+    <ClInclude Include="client\QSGTransform.h" />
+    <ClInclude Include="client\QSGTransformNode.h" />
+    <ClInclude Include="client\QSGViewport.h" />
+    <ClInclude Include="client\Socket.h" />
+    <ClInclude Include="client\stb_image.h" />
+    <ClInclude Include="client\stb_vorbis.h" />
+    <ClInclude Include="client\xlua.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="lua.vcxproj">
+      <Project>{65b39bc3-fae6-40bb-afd8-fb7d47af2def}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="luasocket-2.0.2\socket.vcxproj">
+      <Project>{66e3ce14-884d-4aea-9f20-15a0beaf8c5a}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
